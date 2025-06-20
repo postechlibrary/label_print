@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>청구기호 라벨 출력기 V.4.0</title>
+    <style>
+        /* === 기본 스타일, 기존 CSS 전체 유지 === */
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            box-sizing: border-box;
+            padding-bottom: 40px; /* 제작자 정보 공간 확보 */
+        }
+        h2 {
+            color: #343a40;
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 10px;
+            margin-top: 0;
+            margin-bottom: 20px;
+            text-align: center;
+            width: 100%;
+            max-width: 1400px;
+        }
+        .main-container {
+            display: flex;
+            gap: 20px;
+            width: 100%;
+            max-width: 1400px;
+            flex-grow: 1;
+        }
+        .settings-panel {
+            flex: 0 0 450px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background-color: #ffffff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            height: fit-content;
+            overflow-y: auto;
+            max-height: calc(100vh - 120px);
+        }
+        .preview-panel {
+            flex: 1;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
+            max-height: calc(100vh - 100px);
+        }
+        .preview-panel .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .preview-panel .preview-header h3 {
+            margin: 0;
+            color: #495057;
+        }
+        .preview-panel #printButton {
+            margin-left: 15px;
+            padding: 6px 10px;
+            font-size: 0.9em;
+        }
+        .sheet-navigation {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .sheet-navigation button {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1.1em;
+            line-height: 1;
+            transition: background-color 0.2s ease;
+        }
+        .sheet-navigation button:hover:not(:disabled) {
+            background-color: #5a6268;
+        }
+        .sheet-navigation button:disabled {
+            background-color: #adb5bd;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        #sheetIndicator {
+            font-size: 0.9em;
+            color: #495057;
+            min-width: 100px;
+            text-align: center;
+            font-weight: 500;
+        }
+        #labelPages {
+            padding: 10px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            overflow: auto;
+            flex-grow: 1;
+            min-height: 300px;
+            border: 1px dashed #ccc;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+        }
+        .settings-panel .group,
+        .settings-panel details.group {
+            border: 1px solid #dee2e6;
+            padding: 0;
+            border-radius: 5px;
+            background-color: #fff;
+            overflow: hidden;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .settings-panel details.group summary {
+            font-weight: bold;
+            color: #495057;
+            padding: 8px 15px;
+            cursor: pointer;
+            list-style: none;
+            border-bottom: 1px solid transparent;
+            background-color: #f1f3f5;
+            transition: background-color 0.2s ease;
+            position: relative;
+            text-align: left;
+            padding-left: 30px;
+        }
+        .settings-panel details.group summary:hover { background-color: #e9ecef; }
+        .settings-panel details[open].group summary {
+            border-bottom: 1px solid #dee2e6;
+            background-color: #e9ecef;
+            border-radius: 5px 5px 0 0;
+        }
+        .settings-panel details.group summary::-webkit-details-marker { display: none; }
+        .settings-panel details.group summary::marker { display: none; }
+        .settings-panel details.group summary::before {
+            content: '▶';
+            display: inline-block;
+            font-size: 0.8em;
+            margin-right: 8px;
+            transition: transform 0.2s ease-in-out;
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%) rotate(0deg);
+        }
+        .settings-panel details[open].group summary::before { transform: translateY(-50%) rotate(90deg); }
+        .settings-panel details.group .details-content,
+        .settings-panel .group:not(details) {
+            padding: 10px 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 10px;
+            align-items: center;
+            justify-content: flex-start;
+            border-top: 1px solid #dee2e6;
+        }
+        .settings-panel .group:not(details) {
+            border-top: none;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+        }
+        .settings-panel details:not([open]) .details-content { border-top: none; }
+        .settings-panel .group label,
+        .settings-panel .print-settings label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.88rem;
+            margin-bottom: 0;
+        }
+        .settings-panel .group input[type="number"],
+        .settings-panel .group input[type="file"],
+        .settings-panel .group select,
+        .settings-panel .group button,
+        .settings-panel .print-settings input[type="checkbox"],
+        .settings-panel .print-settings button {
+            padding: 5px 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.88rem;
+            box-sizing: border-box;
+        }
+        .settings-panel .print-settings input[type="checkbox"] {
+            padding: 0;
+            width: 1.1em;
+            height: 1.1em;
+            vertical-align: middle;
+            margin-right: 3px;
+        }
+        .settings-panel .group input[type="number"] { width: 50px; }
+        .settings-panel .group input[type="file"] { flex-grow: 1; }
+        .settings-panel .group button,
+        .settings-panel .print-settings button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            font-weight: 500;
+        }
+        #previewButton, #saveSettingsButton { background-color: #007bff; }
+        #previewButton:hover, #saveSettingsButton:hover { background-color: #0056b3; }
+        #printButton { background-color: #28a745; }
+        #printButton:hover { background-color: #218838; }
+        .settings-panel .print-settings {
+            margin-top: 0;
+            background-color: #f8f9fa;
+        }
+        .settings-panel .print-settings h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+            width: 100%;
+            font-size: 1em;
+            font-weight: bold;
+            text-align: left;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .settings-panel .print-settings p.info {
+            font-size: 0.85em;
+            margin-top: 5px;
+            width: 100%;
+            color: #6c757d;
+        }
+        #statusMessage, #alertBox {
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            text-align: center;
+        }
+        #alertBox {
+            border: 1px solid #ddd;
+            background-color: #e9ecef;
+            text-align: left;
+        }
+        #alertBox p { margin: 0 0 5px 0; }
+        #alertBox hr { margin: 8px 0; border: 0; border-top: 1px solid #ccc; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #cce5ff; color: #004085; border: 1px solid #b8daff; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .label-grid {
+            margin: 0 !important;
+            padding: 0 !important;
+            justify-content: start;
+            display: grid;
+            grid-template-columns: repeat(4, auto);
+            column-gap: var(--gap-x, -1mm);
+            row-gap: var(--gap-y, 5mm);
+            box-sizing: border-box;
+        }
+        .label {
+            width: var(--label-width, 25mm);
+            height: var(--label-height, 50mm);
+            border: 1px dashed #999;
+            padding: 0;
+            box-sizing: border-box;
+            font-size: var(--font-size, 9pt);
+            white-space: pre-line;
+            text-align: var(--text-align, left);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background-color: white;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .label .top-space {
+            height: var(--label-padding-top, 5mm);
+            min-height: var(--label-padding-top, 5mm);
+            width: 100%;
+            margin-bottom: 1mm;
+            flex-shrink: 0;
+            background-color: var(--top-color, transparent);
+        }
+        .label .content {
+            flex-grow: 1;
+            overflow: hidden;
+            line-height: 1.3;
+            padding: 0 1.5mm;
+            box-sizing: border-box;
+        }
+        .label .bottom-space {
+            height: var(--label-padding-bottom, 20mm);
+            min-height: var(--label-padding-bottom, 20mm);
+            width: 100%;
+            margin-top: 1mm;
+            flex-shrink: 0;
+            position: relative;
+            background-color: var(--bottom-color, transparent);
+        }
+        .label .category-marker {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 100%;
+            background: transparent;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: calc(var(--label-padding-bottom) * 0.7);
+            line-height: 1;
+            padding: 0 1.5mm;
+            box-sizing: border-box;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        .label-placeholder {
+             border-color: #e0e0e0;
+             background-color: #fdfdfd;
+             box-shadow: none;
+        }
+        .label-placeholder .content,
+        .label-placeholder .top-space,
+        .label-placeholder .bottom-space,
+        .label-placeholder .category-marker { visibility: hidden; }
+        .A-Red { --bottom-color: #dc3545; }
+        .B-Orange, .C-Orange, .D-Orange, .E-Orange, .F-Orange, .G-Orange { --bottom-color: #fd7e14; }
+        .H-Yellow { --bottom-color: #ffc107; }
+        .J-Green, .K-Green, .L-Green, .M-Green, .N-Green { --bottom-color: #28a745; }
+        .P-NavyBlue { --bottom-color: navy; }
+        .R-Pink, .S-Pink { --bottom-color: #e83e8c; }
+        .U-Chestnut, .V-Chestnut, .Z-Chestnut { --bottom-color: #9A6324; }
+        .Ref-Teal { --bottom-color: #17a2b8; }
+        /* 수정: DVD는 상-하 파랑 */
+        .X-Multimedia { --top-color: #007bff; --bottom-color: #007bff; }
+        .기타 { --bottom-color: #6c757d; }
+        .Q-Yellow_Blue { --top-color: #ffc107; --bottom-color: #007bff; }
+        .Q-Maroon_Blue { --top-color: #800000; --bottom-color: #007bff; }
+        .T-Yellow_Purple { --top-color: #ffc107; --bottom-color: #6f42c1; }
+        .T-Orange_Purple { --top-color: #fd7e14; --bottom-color: #6f42c1; }
+        .T-Green_Purple { --top-color: #28a745; --bottom-color: #6f42c1; }
+        /* 수정: 학위논문은 상-하 빨강 */
+        .Thesis-Red { --top-color: #dc3545; --bottom-color: #dc3545; }
+        /* 추가: 참고자료는 상-하 빨강 */
+        .Ref-Red { --top-color: #dc3545; --bottom-color: #dc3545; }
+        #creatorInfo {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            font-size: 0.8em;
+            color: #6c757d;
+            background-color: rgba(240, 242, 245, 0.8);
+            padding: 2px 5px;
+            border-radius: 3px;
+            z-index: 1000;
+        }
+        @media print {
+            @page { size: A4; margin: 0 !important; }
+            html, body { width: 100%; height: 100%; margin: 0 !important; padding: 0 !important; background-color: white; }
+            h2, .settings-panel, .preview-panel .preview-header,
+            #statusMessage, #alertBox, .sheet-navigation, #creatorInfo {
+                visibility: hidden; display: none; position: absolute;
+            }
+            .preview-panel, #labelPages, #labelPages * { visibility: visible; }
+            .preview-panel {
+                position: static; box-shadow: none; border: none; padding: 0; margin: 0;
+                background-color: transparent; width: 100%; height: 100%; overflow: visible; display: block;
+                max-height: none;
+            }
+            #labelPages {
+                position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+                box-sizing: border-box; padding: 0 !important; background-color: transparent !important;
+                display: flex; justify-content: flex-start; align-items: flex-start;
+                border: none !important; overflow: visible;
+            }
+            .label-grid {
+                margin: var(--print-top-margin, 0mm) 0 0 var(--print-left-margin, 0mm) !important;
+                border: none !important; padding: 0 !important; background-color: transparent !important;
+                width: max-content; box-shadow: none;
+            }
+            .page-break { page-break-after: always; margin: 0 !important; border: none !important; padding: 0 !important; background-color: transparent !important; height: 0; display: block;}
+            .label { box-shadow: none; }
+            body.print-hide-borders .label { border: none !important; }
+            body.print-hide-borders .category-marker { visibility: hidden !important; }
+            body.print-hide-borders .label-placeholder { border: none !important; }
+            body.print-center-content #labelPages { justify-content: center; align-items: flex-start; }
+            body.print-center-content .label-grid { margin: var(--print-top-margin, 0mm) auto 0 auto !important; }
+            body.print-hide-headers-footers { }
+            .label-placeholder { background-color: transparent !important; border: none !important; }
+            .label-placeholder .content, .label-placeholder .top-space,
+            .label-placeholder .bottom-space, .label-placeholder .category-marker { visibility: hidden !important; }
+        }
+    </style>
+</head>
+<body>
+    <h2>📚 청구기호 라벨 출력기 V.4.0</h2>
+    <div class="main-container">
+        <div class="settings-panel">
+            <div class="group">
+                <label for="fileInput" style="flex-grow: 1;">파일 선택:</label>
+                <input type="file" id="fileInput" accept=".txt,.csv" />
+                <span id="encodingStatus" style="margin-left: 5px; font-style: italic; color: #6c757d; font-size: 0.85em;"></span>
+            </div>
+            <div id="statusMessage" style="display: none;"></div>
+            <div id="alertBox" style="display: none;"></div>
+            <details class="group">
+                <summary><strong>🔧 페이지 여백 및 라벨 간격 (mm)</strong></summary>
+                <div class="details-content">
+                    <label>좌측: <input type="number" id="leftMargin" value="0" min="0"></label>
+                    <label>상단: <input type="number" id="topMargin" value="0" min="0"></label>
+                    <label>좌우: <input type="number" id="labelGapX" value="-1" min="-1"></label>
+                    <label>상하: <input type="number" id="labelGapY" value="5" min="-1"></label>
+                </div>
+            </details>
+            <details class="group">
+                <summary><strong>📐 라벨 크기 및 서식</strong></summary>
+                <div class="details-content">
+                    <label>너비(mm): <input type="number" id="labelWidth" value="25" min="1"></label>
+                    <label>높이(mm): <input type="number" id="labelHeight" value="50" min="1"></label>
+                    <label>폰트(pt): <input type="number" id="fontSize" value="9" min="1"></label>
+                    <label>상 여백(mm): <input type="number" id="labelPaddingTop" value="5" min="0"></label>
+                    <label>하 여백(mm): <input type="number" id="labelPaddingBottom" value="20" min="0"></label>
+                    <label>정렬:
+                        <select id="textAlign">
+                            <option value="left">좌측</option>
+                            <option value="center">가운데</option>
+                            <option value="right">우측</option>
+                        </select>
+                    </label>
+                </div>
+            </details>
+            <details class="group" open>
+                <summary><strong>🎨 라벨 출력 설정</strong></summary>
+                <div class="details-content">
+                    <label>용지: <select id="colorSelect" style="min-width: 120px;"><option value="">-- 선택 --</option></select></label>
+                    <label>페이지: <select id="pageSelect" style="min-width: 180px;"><option value="">-- 선택 --</option></select></label>
+                    <button id="previewButton">미리보기</button>
+                    <button id="saveSettingsButton" title="현재 모든 설정을 브라우저에 저장">설정 저장</button>
+                </div>
+            </details>
+            <div class="print-settings group">
+                <h4>🖨️ 인쇄 옵션</h4>
+                <label><input type="checkbox" id="showBorders"> 미리보기/인쇄 경계선 표시</label>
+                <label><input type="checkbox" id="centerPrint" checked> 인쇄 시 가로 중앙 정렬</label>
+                <label><input type="checkbox" id="hideHeaderFooter" checked> 머리글/바닥글 숨기기 (권장)</label>
+                <p class="info" style="width: 100%;">
+                    ℹ️ '머리글/바닥글 숨기기'는 브라우저 인쇄 설정에서도 해당 옵션을 해제해야 완벽히 적용됩니다.
+                </p>
+            </div>
+        </div>
+        <div class="preview-panel">
+            <div class="preview-header">
+                <h3>📄 라벨 미리보기</h3>
+                <button id="printButton">🖨️ 인쇄하기</button>
+            </div>
+            <div class="sheet-navigation">
+                <button id="prevSheetButton" title="이전 용지" disabled>◀</button>
+                <span id="sheetIndicator">용지 - / -</span>
+                <button id="nextSheetButton" title="다음 용지" disabled>▶</button>
+            </div>
+            <div id="labelPages">
+                <p style="color: #6c757d; margin-top: 20px;">파일을 선택하고 용지/페이지를 선택하면 미리보기가 표시됩니다.</p>
+            </div>
+        </div>
+    </div>
+    <div id="creatorInfo">Made by Tony Kwon with AI</div>
+    <script>
+        (function() {
+            "use strict";
+            const LABELS_PER_PAGE = 16;
+            const ENCODING_CHECK_BYTES = 4096;
+            const CATEGORY_TO_CHAR = {
+                'A-Red': 'A', 'B-Orange': 'B', 'C-Orange': 'C', 'D-Orange': 'D', 'E-Orange': 'E', 'F-Orange': 'F', 'G-Orange': 'G',
+                'H-Yellow': 'H', 'J-Green': 'J', 'K-Green': 'K', 'L-Green': 'L', 'M-Green': 'M', 'N-Green': 'N',
+                'P-NavyBlue': 'P',
+                'Q-Yellow_Blue': 'Q', 'Q-Maroon_Blue': 'Q', 'R-Pink': 'R', 'S-Pink': 'S',
+                'T-Yellow_Purple': 'T', 'T-Orange_Purple': 'T', 'T-Green_Purple': 'T',
+                'U-Chestnut': 'U', 'V-Chestnut': 'V', 'Z-Chestnut': 'Z', 'Ref-Teal': 'Ref', '기타': '?'
+                // 'X-Multimedia': 'X',  // 마커 삭제됨 (hideMarker: true)
+                // 'Ref-Red': 'Ref'      // 마커 삭제됨 (hideMarker: true)
+                // 'Thesis-Red': 'D'     // 마커 표시 안함(하단 마커 없음)
+            };
+            const SETTING_FIELDS = {
+                inputs: ['leftMargin', 'topMargin', 'labelWidth', 'labelHeight', 'labelGapX', 'labelGapY', 'fontSize', 'textAlign', 'labelPaddingTop', 'labelPaddingBottom'],
+                checkboxes: ['showBorders', 'hideHeaderFooter', 'centerPrint']
+            };
+            let allGroupedLabels = {};
+            let detectedEncoding = 'auto';
+            const dom = {};
+            function initialize() {
+                cacheDomElements();
+                loadSettings();
+                setupEventListeners();
+                updateStatusMessage("파일을 선택하면 자동으로 처리됩니다.", "info", 5000);
+                updateSheetNavigationState();
+            }
+            function cacheDomElements() {
+                const ids = [
+                    'fileInput', 'encodingStatus', 'statusMessage', 'leftMargin', 'topMargin', 'labelGapX', 'labelGapY',
+                    'labelWidth', 'labelHeight', 'fontSize', 'labelPaddingTop', 'labelPaddingBottom', 'textAlign',
+                    'colorSelect', 'pageSelect', 'showBorders', 'previewButton', 'saveSettingsButton', 'hideHeaderFooter',
+                    'centerPrint', 'printButton', 'alertBox', 'labelPages',
+                    'prevSheetButton', 'nextSheetButton', 'sheetIndicator',
+                    'creatorInfo'
+                ];
+                ids.forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element) dom[id] = element;
+                    else console.warn(`DOM element not found: ${id}`);
+                });
+            }
+            function setupEventListeners() {
+                dom.fileInput?.addEventListener('change', handleFileSelect);
+                dom.colorSelect?.addEventListener('change', handleColorSelectChange);
+                dom.previewButton?.addEventListener('click', renderSelectedPage);
+                dom.saveSettingsButton?.addEventListener('click', saveSettings);
+                dom.printButton?.addEventListener('click', customPrint);
+                dom.pageSelect?.addEventListener('change', renderSelectedPageIfPossible);
+                [...SETTING_FIELDS.inputs, ...SETTING_FIELDS.checkboxes].forEach(id => {
+                    dom[id]?.addEventListener('change', renderSelectedPageIfPossible);
+                });
+                dom.prevSheetButton?.addEventListener('click', navigateToPrevSheet);
+                dom.nextSheetButton?.addEventListener('click', navigateToNextSheet);
+            }
+            function navigateToPrevSheet() {
+                if (!dom.colorSelect) return;
+                const currentIndex = dom.colorSelect.selectedIndex;
+                if (currentIndex > 1) {
+                    dom.colorSelect.selectedIndex = currentIndex - 1;
+                    dom.colorSelect.dispatchEvent(new Event('change'));
+                }
+            }
+            function navigateToNextSheet() {
+                if (!dom.colorSelect) return;
+                const currentIndex = dom.colorSelect.selectedIndex;
+                const totalOptions = dom.colorSelect.options.length;
+                if (currentIndex < totalOptions - 1) {
+                    dom.colorSelect.selectedIndex = currentIndex + 1;
+                    dom.colorSelect.dispatchEvent(new Event('change'));
+                }
+            }
+            function updateSheetNavigationState() {
+                if (!dom.colorSelect || !dom.prevSheetButton || !dom.nextSheetButton || !dom.sheetIndicator) return;
+                const currentIndex = dom.colorSelect.selectedIndex;
+                const totalOptions = dom.colorSelect.options.length;
+                const totalSheets = totalOptions > 1 ? totalOptions - 1 : 0;
+                const currentSheetIndex = currentIndex > 0 ? currentIndex : 0;
+                dom.prevSheetButton.disabled = currentIndex <= 1;
+                dom.nextSheetButton.disabled = currentIndex === totalOptions - 1 || totalSheets === 0;
+                if (totalSheets > 0 && currentSheetIndex > 0) {
+                    const currentSheetName = dom.colorSelect.options[currentIndex].text;
+                    dom.sheetIndicator.textContent = `용지 ${currentSheetIndex} / ${totalSheets} (${currentSheetName})`;
+                    dom.sheetIndicator.title = currentSheetName;
+                } else if (totalSheets > 0 && currentSheetIndex === 0) {
+                    dom.sheetIndicator.textContent = `용지 - / ${totalSheets}`;
+                    dom.sheetIndicator.title = '용지를 선택하세요';
+                } else {
+                    dom.sheetIndicator.textContent = '용지 - / -';
+                    dom.sheetIndicator.title = '파일을 먼저 로드하세요';
+                    dom.prevSheetButton.disabled = true;
+                    dom.nextSheetButton.disabled = true;
+                }
+            }
+            function renderSelectedPageIfPossible() {
+                const hasLabels = Object.keys(allGroupedLabels).length > 0;
+                const validColor = dom.colorSelect?.value && !dom.colorSelect.value.startsWith('--');
+                const validPage = dom.pageSelect?.value && !dom.pageSelect.value.startsWith('--');
+                if (hasLabels && validColor && validPage) renderSelectedPage();
+            }
+            function loadSettings() {
+                const defaultSettings = getLabelSettingsFromHTML();
+                applySettingsToDOM(defaultSettings);
+                SETTING_FIELDS.inputs.forEach(id => {
+                    const savedValue = localStorage.getItem(id);
+                    if (savedValue !== null && dom[id]) dom[id].value = savedValue;
+                });
+                SETTING_FIELDS.checkboxes.forEach(id => {
+                    const savedValue = localStorage.getItem(id);
+                    if (savedValue !== null && dom[id]) dom[id].checked = savedValue === 'true';
+                });
+                renderSelectedPageIfPossible();
+            }
+            function getLabelSettingsFromHTML() {
+                const settings = {};
+                SETTING_FIELDS.inputs.forEach(id => { if (dom[id]) settings[id] = dom[id].value; });
+                SETTING_FIELDS.checkboxes.forEach(id => { if (dom[id]) settings[id] = dom[id].checked; });
+                return settings;
+            }
+            function applySettingsToDOM(settings) {
+                SETTING_FIELDS.inputs.forEach(id => { if (dom[id] && settings[id] !== undefined) dom[id].value = settings[id]; });
+                SETTING_FIELDS.checkboxes.forEach(id => { if (dom[id] && settings[id] !== undefined) dom[id].checked = settings[id]; });
+            }
+            function saveSettings() {
+                SETTING_FIELDS.inputs.forEach(id => { if (dom[id]) localStorage.setItem(id, dom[id].value); });
+                SETTING_FIELDS.checkboxes.forEach(id => { if (dom[id]) localStorage.setItem(id, dom[id].checked); });
+                updateStatusMessage("✅ 설정이 저장되었습니다.", "success", 2000);
+            }
+            let statusTimeout;
+            function updateStatusMessage(message, type = "info", duration = 0) {
+                if (!dom.statusMessage) return;
+                clearTimeout(statusTimeout);
+                dom.statusMessage.textContent = message;
+                dom.statusMessage.className = type;
+                dom.statusMessage.style.display = 'block';
+                if (duration > 0) {
+                    statusTimeout = setTimeout(() => {
+                        if (dom.statusMessage.textContent === message) dom.statusMessage.style.display = 'none';
+                    }, duration);
+                }
+            }
+            function updateAlertBox(htmlContent) {
+                if (!dom.alertBox) return;
+                dom.alertBox.innerHTML = htmlContent;
+                dom.alertBox.style.display = htmlContent ? 'block' : 'none';
+            }
+            function handleFileSelect(event) {
+                const file = event.target.files[0];
+                if (!file) { updateStatusMessage("파일이 선택되지 않았습니다.", "warning", 3000); return; }
+                updateStatusMessage(`선택된 파일: ${file.name}. 처리 중...`, "info");
+                if (dom.encodingStatus) dom.encodingStatus.textContent = '';
+                resetUI();
+                detectAndReadFile(file);
+            }
+            function resetUI() {
+                allGroupedLabels = {};
+                populateDropdown(dom.colorSelect, [], "-- 용지 선택 --");
+                populateDropdown(dom.pageSelect, [], "-- 페이지 선택 --");
+                if (dom.labelPages) dom.labelPages.innerHTML = '<p style="color: #6c757d; margin-top: 20px;">파일을 선택하고 용지/페이지를 선택하면 미리보기가 표시됩니다.</p>';
+                updateAlertBox('');
+                if (dom.encodingStatus) dom.encodingStatus.textContent = '';
+                updateSheetNavigationState();
+            }
+            function detectAndReadFile(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const buffer = e.target.result;
+                        detectedEncoding = detectEncoding(buffer);
+                        if (dom.encodingStatus) dom.encodingStatus.textContent = ` (${detectedEncoding.toUpperCase()})`;
+                        const textReader = new FileReader();
+                        textReader.onload = (event) => processFileContent(event.target.result);
+                        textReader.onerror = () => {
+                            updateStatusMessage("❌ 파일을 텍스트로 읽는 중 오류.", "error");
+                            if (dom.encodingStatus) dom.encodingStatus.textContent = '';
+                        }
+                        textReader.readAsText(file, detectedEncoding);
+                    } catch (error) {
+                        console.error("인코딩 감지/처리 오류:", error);
+                        updateStatusMessage(`❌ 파일 처리 오류: ${error.message}`, "error");
+                        if (dom.encodingStatus) dom.encodingStatus.textContent = '';
+                    }
+                };
+                reader.onerror = () => updateStatusMessage("❌ 파일 읽기 오류.", "error");
+                reader.readAsArrayBuffer(file.slice(0, ENCODING_CHECK_BYTES));
+            }
+            function detectEncoding(buffer) {
+                const eucKrDecoder = new TextDecoder('euc-kr', { fatal: true });
+                const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
+                let eucKrHangulCount = -1, utf8HangulCount = -1;
+                try { eucKrHangulCount = (eucKrDecoder.decode(buffer).match(/[가-힣]/g) || []).length; } catch (e) {}
+                try { utf8HangulCount = (utf8Decoder.decode(buffer).match(/[가-힣]/g) || []).length; } catch (e) {}
+                if (utf8HangulCount >= 0 && utf8HangulCount >= eucKrHangulCount) return 'utf-8';
+                if (eucKrHangulCount > 0) return 'euc-kr';
+                return 'utf-8';
+            }
+            function processFileContent(fileContent) {
+                try {
+                    fileContent = fileContent.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                    const lines = fileContent.trim().split('\n');
+                    if (lines.length <= 1) {
+                        updateStatusMessage("❌ 파일에 유효한 데이터 라인이 없습니다. (첫 줄 제외)", "error");
+                        updateSheetNavigationState();
+                        return;
+                    }
+                    const dataLines = lines.slice(1);
+                    if (dataLines.length === 0 || dataLines.every(line => !line.trim())) {
+                        updateStatusMessage("❌ 파일에 유효한 데이터 라인이 없습니다. (첫 줄 제외)", "error");
+                        updateSheetNavigationState();
+                        return;
+                    }
+                    const parsedData = parseCsvData(dataLines);
+                    if (parsedData.length === 0) {
+                        updateStatusMessage("❌ 파싱된 유효 데이터가 없습니다.", "error");
+                        updateSheetNavigationState();
+                        return;
+                    }
+                    allGroupedLabels = groupLabels(parsedData);
+                    if (Object.keys(allGroupedLabels).length === 0) {
+                        updateStatusMessage("❌ 유효한 라벨 그룹이 없습니다.", "error");
+                        updateSheetNavigationState();
+                        return;
+                    }
+                    const groupNames = Object.keys(allGroupedLabels).sort();
+                    const totalLabels = groupNames.reduce((sum, group) => sum + allGroupedLabels[group].length, 0);
+                    updateStatusMessage(`✅ 처리 완료: ${totalLabels}개 라벨 (${groupNames.length}개 용지)`, "success", 5000);
+                    updateAlertBox(`<p><strong>🎨 준비할 라벨 용지:</strong> ${groupNames.join(', ')}</p><hr><p style="font-size:0.9em;">각 용지 종류를 선택하고 페이지를 확인하세요.</p>`);
+                    populateDropdown(dom.colorSelect, groupNames, "-- 용지 선택 --", true);
+                    handleColorSelectChange();
+                } catch (error) {
+                    console.error("파일 내용 처리 오류:", error);
+                    updateStatusMessage(`❌ 파일 내용 처리 오류: ${error.message}`, "error");
+                    if (dom.encodingStatus) dom.encodingStatus.textContent = '';
+                    updateSheetNavigationState();
+                }
+            }
+            function parseCsvData(lines) {
+                const data = [];
+                const csvRegex = /(?:^|,|\t)(\"(?:[^\"]+|\"\")*\"|[^,\t]*)/g;
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    let parts = []; let match;
+                    csvRegex.lastIndex = 0;
+                    while ((match = csvRegex.exec(line)) !== null) {
+                        let value = match[1].trim();
+                        if (value.startsWith('"') && value.endsWith('"')) {
+                            value = value.slice(1, -1).replace(/""/g, '"');
+                        }
+                        parts.push(value);
+                    }
+                    if (parts.length >= 1 && parts[0]) {
+                        data.push(parts);
+                    } else {
+                        console.warn("Skipping invalid or empty line:", line);
+                    }
+                }
+                return data;
+            }
+            function groupLabels(data) {
+                const grouped = {};
+                for (const row of data) {
+                    const callNumber = row[0]?.trim() || '';
+                    const volume = row.length > 1 ? (row[1]?.trim() || '') : '';
+                    const copy = row.length > 2 ? (row[2]?.trim() || '') : '';
+                    const iType = row.length > 3 ? (row[3]?.trim() || '') : '';
+                    if (!callNumber) continue;
+                    const { group, labelText, marker, customClass, hideMarker } = formatLabelData(callNumber, volume, copy, iType);
+                    if (!grouped[group]) grouped[group] = [];
+                    grouped[group].push({ labelText, marker, customClass, hideMarker });
+                }
+                return grouped;
+            }
+            function getCallNumberGroup(callNumber) {
+                const upperCall = callNumber.toUpperCase();
+                if (upperCall.startsWith('X')) return 'X-Multimedia';
+                if (upperCall.startsWith('REF')) return 'Ref-Teal';
+                if (upperCall.startsWith('Q')) {
+                    const qSub = upperCall.substring(0, 2);
+                    if (qSub >= 'QA' && qSub <= 'QC') return 'Q-Yellow_Blue';
+                    if (qSub >= 'QD' && qSub <= 'QR') return 'Q-Maroon_Blue';
+                    if (/^Q\d/.test(upperCall)) return 'Q-Yellow_Blue';
+                }
+                if (upperCall.startsWith('T')) {
+                    const tSub = upperCall.substring(0, 2);
+                    if (tSub >= 'TP' && tSub <= 'TX') return 'T-Green_Purple';
+                    if (tSub >= 'TA' && tSub <= 'TG') return 'T-Yellow_Purple';
+                    if (tSub >= 'TH' && tSub <= 'TN') return 'T-Orange_Purple';
+                    if (/^T\d/.test(upperCall)) return 'T-Yellow_Purple';
+                }
+                const firstChar = upperCall.charAt(0);
+                switch (firstChar) {
+                    case 'A': return 'A-Red';
+                    case 'B': case 'C': case 'D': case 'E': case 'F': case 'G': return `${firstChar}-Orange`;
+                    case 'H': return 'H-Yellow';
+                    case 'J': case 'K': case 'L': case 'M': case 'N': return `${firstChar}-Green`;
+                    case 'P': return 'P-NavyBlue';
+                    case 'R': case 'S': return `${firstChar}-Pink`;
+                    case 'U': case 'V': case 'Z': return `${firstChar}-Chestnut`;
+                    default: return '기타';
+                }
+            }
+            function formatLabelData(call, vol, cp, iType) {
+                // 1. I Type=2 (학위논문)일 때 - 상-하 빨강
+                if (iType === '2') {
+                    let labelLines = [];
+                    labelLines.push('D'); // 상단에 D
+                    labelLines.push(call.replace(/ /g, '\n')); // 청구기호(줄바꿈)
+                    let bottomLines = [];
+                    if (vol) bottomLines.push(vol.trim());
+                    if (cp) {
+                        const copyStr = String(cp).trim();
+                        if (!/^[cC]?\.?\s*1\s*$/.test(copyStr)) {
+                            if (/^[cC]\./i.test(copyStr)) {
+                                bottomLines.push(copyStr.replace('.', ''));
+                            }
+                            else if (/^\d+$/.test(copyStr)) {
+                                if (copyStr !== '0') {
+                                    bottomLines.push(`C${copyStr}`);
+                                }
+                            }
+                            else {
+                                bottomLines.push(copyStr);
+                            }
+                        }
+                    }
+                    if (bottomLines.length > 0) labelLines.push(bottomLines.join('\n'));
+                    // 하단 마커 없음
+                    return { group: 'Thesis-Red', labelText: labelLines.join('\n').trim(), marker: '', customClass: 'Thesis-Red', hideMarker: true };
+                }
+                
+                // 2. I Type=5 (참고자료)일 때 - 상-하 빨강, 별도 그룹핑
+                if (iType === '5') {
+                    let labelLines = [];
+                    labelLines.push(call.replace(/ /g, '\n')); // 청구기호(줄바꿈)
+                    let bottomLines = [];
+                    if (vol) bottomLines.push(vol.trim());
+                    if (cp) {
+                        const copyStr = String(cp).trim();
+                        if (!/^[cC]?\.?\s*1\s*$/.test(copyStr)) {
+                            if (/^[cC]\./i.test(copyStr)) {
+                                bottomLines.push(copyStr.replace('.', ''));
+                            }
+                            else if (/^\d+$/.test(copyStr)) {
+                                if (copyStr !== '0') {
+                                    bottomLines.push(`C${copyStr}`);
+                                }
+                            }
+                            else {
+                                bottomLines.push(copyStr);
+                            }
+                        }
+                    }
+                    if (bottomLines.length > 0) labelLines.push(bottomLines.join('\n'));
+                    return { group: 'Ref-Red', labelText: labelLines.join('\n').trim(), marker: 'Ref', customClass: 'Ref-Red', hideMarker: true };
+                }
+                
+                // 3. DVD/DVD딸림 (I Type=10,8)일 때 - 상-하 파랑, 줄바꿈 개선
+                if (iType === '10' || iType === '8') {
+                    let labelLines = [];
+                    
+                    // X로 시작하는 청구기호 처리: XDV, XC, XA 등에서 강제 줄바꿈
+                    if (call.toUpperCase().startsWith('X')) {
+                        const parts = call.split(' ');
+                        for (let i = 0; i < parts.length; i++) {
+                            const part = parts[i];
+                            // V로 시작하는 일련번호도 강제 줄바꿈
+                            if (part.toUpperCase().startsWith('V')) {
+                                labelLines.push(part);
+                            } else if (part.toUpperCase().startsWith('X')) {
+                                // XDV, XC, XA 등에서 줄바꿈
+                                labelLines.push(part);
+                            } else {
+                                labelLines.push(part);
+                            }
+                        }
+                    } else {
+                        labelLines.push(call);
+                    }
+                    
+                    let bottomLines = [];
+                    if (vol) bottomLines.push(vol.trim());
+                    if (cp) {
+                        const copyStr = String(cp).trim();
+                        if (!/^[cC]?\.?\s*1\s*$/.test(copyStr)) {
+                            if (/^[cC]\./i.test(copyStr)) {
+                                bottomLines.push(copyStr.replace('.', ''));
+                            }
+                            else if (/^\d+$/.test(copyStr)) {
+                                if (copyStr !== '0') {
+                                    bottomLines.push(`C${copyStr}`);
+                                }
+                            }
+                            else {
+                                bottomLines.push(copyStr);
+                            }
+                        }
+                    }
+                    if (bottomLines.length > 0) labelLines.push(bottomLines.join('\n'));
+                    return { group: 'X-Multimedia', labelText: labelLines.join('\n').trim(), marker: 'X', customClass: 'X-Multimedia', hideMarker: true };
+                }
+                
+                // 4. 일반 라벨
+                const group = getCallNumberGroup(call);
+                const isSpecial = group === 'X-Multimedia' || group === 'Ref-Teal';
+                let mainCall = call;
+                if (isSpecial) {
+                    const spaceIndex = call.indexOf(' ');
+                    if (spaceIndex !== -1) mainCall = call.substring(spaceIndex + 1).trim();
+                    else { mainCall = ''; }
+                }
+                let labelLines = [];
+                if (mainCall) labelLines.push(mainCall.replace(/ /g, '\n'));
+                let bottomLines = [];
+                if (vol) bottomLines.push(vol.trim());
+                if (cp) {
+                    const copyStr = String(cp).trim();
+                    if (!/^[cC]?\.?\s*1\s*$/.test(copyStr)) {
+                        if (/^[cC]\./i.test(copyStr)) {
+                            bottomLines.push(copyStr.replace('.', ''));
+                        }
+                        else if (/^\d+$/.test(copyStr)) {
+                            if (copyStr !== '0') {
+                                bottomLines.push(`C${copyStr}`);
+                            }
+                        }
+                        else {
+                            bottomLines.push(copyStr);
+                        }
+                    }
+                }
+                if (bottomLines.length > 0) {
+                    if(labelLines.length > 0) labelLines.push(bottomLines.join('\n'));
+                    else labelLines.push(...bottomLines);
+                }
+                return { group, labelText: labelLines.join('\n').trim(), marker: CATEGORY_TO_CHAR[group] || '?', customClass: group };
+            }
+            function populateDropdown(selectElement, options, defaultText, selectFirst = false) {
+                if (!selectElement) return;
+                selectElement.innerHTML = '';
+                const defaultOption = document.createElement('option');
+                defaultOption.value = ""; defaultOption.textContent = defaultText;
+                defaultOption.disabled = !options || options.length === 0;
+                selectElement.appendChild(defaultOption);
+                options.forEach((optionValue) => {
+                    const option = document.createElement('option');
+                    if (typeof optionValue === 'object') {
+                        option.value = optionValue.value; option.textContent = optionValue.text;
+                    } else {
+                        option.value = optionValue; option.textContent = optionValue;
+                    }
+                    selectElement.appendChild(option);
+                });
+                selectElement.selectedIndex = (selectFirst && options.length > 0) ? 1 : 0;
+                updateSheetNavigationState();
+            }
+            function handleColorSelectChange() {
+                const selectedGroup = dom.colorSelect?.value;
+                if (!selectedGroup || selectedGroup.startsWith('--')) {
+                    populateDropdown(dom.pageSelect, [], "-- 페이지 선택 --");
+                    if (dom.labelPages) dom.labelPages.innerHTML = '<p style="color: #6c757d; margin-top: 20px;">용지를 선택해주세요.</p>';
+                    updateSheetNavigationState();
+                    return;
+                }
+                const labels = allGroupedLabels[selectedGroup] || [];
+                const totalPages = Math.ceil(labels.length / LABELS_PER_PAGE);
+                const pageOptions = [];
+                if (labels.length === 0) {
+                    populateDropdown(dom.pageSelect, [], "-- 라벨 없음 --");
+                    if (dom.labelPages) dom.labelPages.innerHTML = '<p style="color: #dc3545; margin-top: 20px;">선택된 용지에 해당하는 라벨 데이터가 없습니다.</p>';
+                    updateSheetNavigationState();
+                    return;
+                }
+                for (let i = 1; i <= totalPages; i++) {
+                    const start = (i - 1) * LABELS_PER_PAGE + 1;
+                    const end = Math.min(i * LABELS_PER_PAGE, labels.length);
+                    pageOptions.push({ value: i, text: `${i} 페이지 (${start}-${end} / 총 ${labels.length}개)` });
+                }
+                populateDropdown(dom.pageSelect, pageOptions, "-- 페이지 선택 --", true);
+                renderSelectedPage();
+                updateSheetNavigationState();
+            }
+            function renderSelectedPage() {
+                const selectedGroup = dom.colorSelect?.value;
+                const selectedPage = parseInt(dom.pageSelect?.value, 10);
+                if (!selectedGroup || selectedGroup.startsWith('--') || isNaN(selectedPage) || selectedPage <= 0) {
+                    if (dom.labelPages && !dom.labelPages.querySelector('.label-grid')) {
+                        dom.labelPages.innerHTML = '<p style="color: #6c757d; margin-top: 20px;">파일 처리 후 용지와 페이지를 선택하세요.</p>';
+                    }
+                    return;
+                }
+                const settings = getLabelSettings();
+                const labels = allGroupedLabels[selectedGroup] || [];
+                const startIndex = (selectedPage - 1) * LABELS_PER_PAGE;
+                const labelsToRender = labels.slice(startIndex, startIndex + LABELS_PER_PAGE);
+                if (!dom.labelPages) return;
+                dom.labelPages.innerHTML = '';
+                const pageDiv = createLabelPageElement(settings);
+                for (let i = 0; i < LABELS_PER_PAGE; i++) {
+                    const labelData = labelsToRender[i];
+                    if (labelData !== undefined) {
+                        pageDiv.appendChild(createLabelElement(labelData, settings));
+                    } else {
+                        const placeholderDiv = document.createElement('div');
+                        placeholderDiv.className = `label label-placeholder ${selectedGroup}`;
+                        pageDiv.appendChild(placeholderDiv);
+                    }
+                }
+                dom.labelPages.appendChild(pageDiv);
+                dom.labelPages.querySelectorAll('.label').forEach(label => {
+                    label.style.border = settings.showBorders ? '1px dashed #999' : 'none';
+                });
+                dom.labelPages.querySelectorAll('.label-placeholder').forEach(label => {
+                    label.style.border = settings.showBorders ? '1px dashed #e0e0e0' : 'none';
+                });
+            }
+            function getLabelSettings() {
+                return {
+                    leftMargin: parseFloat(dom.leftMargin?.value) || 0,
+                    topMargin: parseFloat(dom.topMargin?.value) || 0,
+                    width: parseFloat(dom.labelWidth?.value) || 25,
+                    height: parseFloat(dom.labelHeight?.value) || 50,
+                    gapX: parseFloat(dom.labelGapX?.value) ?? -1,
+                    gapY: parseFloat(dom.labelGapY?.value) || 5,
+                    fontSize: parseFloat(dom.fontSize?.value) || 9,
+                    textAlign: dom.textAlign?.value || 'left',
+                    paddingTop: parseFloat(dom.labelPaddingTop?.value) || 5,
+                    paddingBottom: parseFloat(dom.labelPaddingBottom?.value) || 20,
+                    showBorders: dom.showBorders?.checked ?? false,
+                    centerPrint: dom.centerPrint?.checked ?? true
+                };
+            }
+            function createLabelPageElement(settings) {
+                const pageDiv = document.createElement('div');
+                pageDiv.className = 'label-grid';
+                pageDiv.style.setProperty('--label-width', `${settings.width}mm`);
+                pageDiv.style.setProperty('--label-height', `${settings.height}mm`);
+                pageDiv.style.setProperty('--gap-x', `${settings.gapX}mm`);
+                pageDiv.style.setProperty('--gap-y', `${settings.gapY}mm`);
+                pageDiv.style.setProperty('--font-size', `${settings.fontSize}pt`);
+                pageDiv.style.setProperty('--text-align', settings.textAlign);
+                pageDiv.style.setProperty('--label-padding-top', `${settings.paddingTop}mm`);
+                pageDiv.style.setProperty('--label-padding-bottom', `${settings.paddingBottom}mm`);
+                return pageDiv;
+            }
+            function createLabelElement(data, settings) {
+                const div = document.createElement('div');
+                div.className = `label ${data.customClass}`;
+                const topSpace = document.createElement('div'); topSpace.className = 'top-space';
+                const content = document.createElement('div'); content.className = 'content'; content.textContent = data.labelText;
+                const bottomSpace = document.createElement('div'); bottomSpace.className = 'bottom-space';
+                // 마커 표시 안 함: hideMarker가 true이면 category-marker 미생성
+                if (!data.hideMarker) {
+                    const categoryMarker = document.createElement('div'); categoryMarker.className = 'category-marker';
+                    categoryMarker.textContent = data.marker;
+                    bottomSpace.appendChild(categoryMarker);
+                }
+                div.appendChild(topSpace); div.appendChild(content); div.appendChild(bottomSpace);
+                
+                // 텍스트 오버플로우 체크 및 폰트 크기 자동 조정
+                setTimeout(() => adjustFontSizeToFit(content, settings.fontSize), 0);
+                
+                return div;
+            }
+            
+            function adjustFontSizeToFit(contentElement, baseFontSize) {
+                if (!contentElement || !contentElement.textContent.trim()) return;
+                
+                const minFontSize = 6; // 최소 폰트 크기 (pt)
+                let currentFontSize = baseFontSize;
+                let attempts = 0;
+                const maxAttempts = 10; // 무한루프 방지
+                
+                // 임시로 측정을 위한 스타일 설정
+                const originalDisplay = contentElement.style.display;
+                const originalVisibility = contentElement.style.visibility;
+                contentElement.style.visibility = 'hidden';
+                contentElement.style.display = 'block';
+                
+                while (attempts < maxAttempts && currentFontSize >= minFontSize) {
+                    contentElement.style.fontSize = `${currentFontSize}pt`;
+                    
+                    // 가로 또는 세로 오버플로우 체크
+                    const isOverflowingHorizontally = contentElement.scrollWidth > contentElement.clientWidth;
+                    const isOverflowingVertically = contentElement.scrollHeight > contentElement.clientHeight;
+                    
+                    if (!isOverflowingHorizontally && !isOverflowingVertically) {
+                        break; // 박스 안에 들어감
+                    }
+                    
+                    // 폰트 크기를 1pt씩 줄임
+                    currentFontSize -= 1;
+                    attempts++;
+                }
+                
+                // 원래 스타일 복원
+                contentElement.style.display = originalDisplay;
+                contentElement.style.visibility = originalVisibility;
+                
+                // 최종 폰트 크기 적용
+                if (currentFontSize < baseFontSize) {
+                    contentElement.style.fontSize = `${Math.max(currentFontSize, minFontSize)}pt`;
+                    // 조정된 폰트 크기를 시각적으로 표시하기 위해 약간의 색상 변경 (선택사항)
+                    // contentElement.style.color = '#444';
+                }
+            }
+            function customPrint() {
+                if (!dom.labelPages || !dom.labelPages.querySelector('.label-grid')) {
+                    updateStatusMessage("❌ 인쇄할 미리보기가 없습니다.", "error", 4000); return;
+                }
+                const settings = getLabelSettings();
+                const hideHeaderFooter = dom.hideHeaderFooter?.checked ?? true;
+                document.body.classList.remove('print-hide-borders', 'print-center-content', 'print-hide-headers-footers');
+                document.body.classList.toggle('print-hide-borders', !settings.showBorders);
+                document.body.classList.toggle('print-center-content', settings.centerPrint);
+                document.body.classList.toggle('print-hide-headers-footers', hideHeaderFooter);
+                if (!settings.centerPrint) {
+                    document.documentElement.style.setProperty('--print-left-margin', `${settings.leftMargin}mm`);
+                    document.documentElement.style.setProperty('--print-top-margin', `${settings.topMargin}mm`);
+                } else {
+                    document.documentElement.style.removeProperty('--print-left-margin');
+                    document.documentElement.style.removeProperty('--print-top-margin');
+                }
+                updateStatusMessage("🖨️ 인쇄 대화상자 준비 중...", "info");
+                setTimeout(() => {
+                    try {
+                        window.print();
+                        updateStatusMessage("✅ 인쇄 명령 전송 완료.", "success", 5000);
+                        if (hideHeaderFooter) setTimeout(() => updateStatusMessage("✅ '머리글/바닥글 숨기기' 옵션 활성화됨 (브라우저 확인 필요)", "success", 7000), 1500);
+                    } catch (error) {
+                        console.error("인쇄 오류:", error);
+                        updateStatusMessage("❌ 인쇄 중 오류가 발생했습니다.", "error");
+                    }
+                }, 250);
+            }
+            window.addEventListener('DOMContentLoaded', initialize);
+        })();
+    </script>
+</body>
+</html>
